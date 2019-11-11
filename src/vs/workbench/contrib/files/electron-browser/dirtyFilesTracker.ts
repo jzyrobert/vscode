@@ -12,6 +12,7 @@ import { IUntitledTextEditorService } from 'vs/workbench/services/untitled/commo
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { DirtyFilesTracker } from 'vs/workbench/contrib/files/common/dirtyFilesTracker';
 import { IElectronService } from 'vs/platform/electron/node/electron';
+import { IWorkingCopyService } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
 export class NativeDirtyFilesTracker extends DirtyFilesTracker {
 	private isDocumentedEdited: boolean;
@@ -22,9 +23,10 @@ export class NativeDirtyFilesTracker extends DirtyFilesTracker {
 		@IEditorService editorService: IEditorService,
 		@IActivityService activityService: IActivityService,
 		@IUntitledTextEditorService protected readonly untitledTextEditorService: IUntitledTextEditorService,
-		@IElectronService private readonly electronService: IElectronService
+		@IElectronService private readonly electronService: IElectronService,
+		@IWorkingCopyService workingCopyService: IWorkingCopyService
 	) {
-		super(textFileService, lifecycleService, editorService, activityService, untitledTextEditorService);
+		super(textFileService, lifecycleService, editorService, activityService, untitledTextEditorService, workingCopyService);
 
 		this.isDocumentedEdited = false;
 	}

@@ -24,8 +24,11 @@ import { isEqual } from 'vs/base/common/resources';
 import { generateUuid } from 'vs/base/common/uuid';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { editorBackground, editorForeground } from 'vs/platform/theme/common/colorRegistry';
+import { IWorkingCopy, IWorkingCopyService } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
-export class TestCustomEditorsAction extends Action {
+const CUSTOM_SCHEME = 'testCustomEditor';
+
+class TestCustomEditorsAction extends Action {
 
 	static readonly ID = 'workbench.action.openCustomEditor';
 	static readonly LABEL = nls.localize('openCustomEditor', "Test Open Custom Editor");
@@ -33,19 +36,21 @@ export class TestCustomEditorsAction extends Action {
 	constructor(
 		id: string,
 		label: string,
-		@IEditorService private readonly editorService: IEditorService
+		@IEditorService private readonly editorService: IEditorService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService
 	) {
 		super(id, label);
 	}
 
 	async run(): Promise<boolean> {
-		await this.editorService.openEditor(new TestCustomEditorInput(URI.parse(`testCustomEditor:/${generateUuid()}`)));
+		const input = this.instantiationService.createInstance(TestCustomEditorInput, URI.parse(`${CUSTOM_SCHEME}:/${generateUuid()}`));
+		await this.editorService.openEditor(input);
 
 		return true;
 	}
 }
 
-export class TestCustomEditor extends BaseEditor {
+class TestCustomEditor extends BaseEditor {
 
 	static ID = 'testCustomEditor';
 
@@ -109,12 +114,15 @@ export class TestCustomEditor extends BaseEditor {
 	layout(dimension: Dimension): void { }
 }
 
-export class TestCustomEditorInput extends EditorInput {
+class TestCustomEditorInput extends EditorInput implements IWorkingCopy {
 	private model: TestCustomEditorModel | undefined = undefined;
+
 	private dirty = false;
 
-	constructor(public readonly resource: URI) {
+	constructor(public readonly resource: URI, @IWorkingCopyService workingCopyService: IWorkingCopyService) {
 		super();
+
+		this._register(workingCopyService.registerWorkingCopy(this));
 	}
 
 	getResource(): URI {
@@ -126,7 +134,7 @@ export class TestCustomEditorInput extends EditorInput {
 	}
 
 	getName(): string {
-		return `Custom Editor: ${this.resource.toString()}`;
+		return this.resource.toString();
 	}
 
 	setValue(value: string) {
@@ -137,9 +145,11 @@ export class TestCustomEditorInput extends EditorInput {
 		this.setDirty(value.length > 0);
 	}
 
-	setDirty(dirty: boolean) {
-		this.dirty = dirty;
-		this._onDidChangeDirty.fire();
+	private setDirty(dirty: boolean) {
+		if (this.dirty !== dirty) {
+			this.dirty = dirty;
+			this._onDidChangeDirty.fire();
+		}
 	}
 
 	isDirty(): boolean {
@@ -174,9 +184,20 @@ export class TestCustomEditorInput extends EditorInput {
 	matches(other: EditorInput) {
 		return other instanceof TestCustomEditorInput && isEqual(other.resource, this.resource);
 	}
+
+	dispose(): void {
+		this.setDirty(false);
+
+		if (this.model) {
+			this.model.dispose();
+			this.model = undefined;
+		}
+
+		super.dispose();
+	}
 }
 
-export class TestCustomEditorModel extends EditorModel {
+class TestCustomEditorModel extends EditorModel {
 
 	public value: string = '';
 
@@ -209,7 +230,7 @@ class TestCustomEditorInputFactory implements IEditorInputFactory {
 	}
 
 	deserialize(instantiationService: IInstantiationService, serializedEditorInput: string): TestCustomEditorInput {
-		return new TestCustomEditorInput(URI.parse(JSON.parse(serializedEditorInput).resource));
+		return instantiationService.createInstance(TestCustomEditorInput, URI.parse(JSON.parse(serializedEditorInput).resource));
 	}
 }
 

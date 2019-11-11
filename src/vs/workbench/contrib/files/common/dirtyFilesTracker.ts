@@ -14,6 +14,7 @@ import { IActivityService, NumberBadge } from 'vs/workbench/services/activity/co
 import { IUntitledTextEditorService } from 'vs/workbench/services/untitled/common/untitledTextEditorService';
 import * as arrays from 'vs/base/common/arrays';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IWorkingCopyService, IWorkingCopy } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
 export class DirtyFilesTracker extends Disposable implements IWorkbenchContribution {
 	private lastKnownDirtyCount: number | undefined;
@@ -24,7 +25,8 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IActivityService private readonly activityService: IActivityService,
-		@IUntitledTextEditorService protected readonly untitledTextEditorService: IUntitledTextEditorService
+		@IUntitledTextEditorService protected readonly untitledTextEditorService: IUntitledTextEditorService,
+		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService
 	) {
 		super();
 
@@ -40,6 +42,9 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 		this._register(this.textFileService.models.onModelsSaveError(e => this.onTextFilesSaveError(e)));
 		this._register(this.textFileService.models.onModelsReverted(e => this.onTextFilesReverted(e)));
 
+		// NEW!
+		this._register(this.workingCopyService.onDidChangeDirty(c => this.onWorkingCopyDidChangeDirty(c)));
+
 		// Lifecycle
 		this.lifecycleService.onShutdown(this.dispose, this);
 	}
@@ -54,6 +59,10 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 		if (gotDirty || this.hasDirtyCount) {
 			this.updateActivityBadge();
 		}
+	}
+
+	private onWorkingCopyDidChangeDirty(copy: IWorkingCopy): void {
+		this.updateActivityBadge();
 	}
 
 	protected onTextFilesDirty(e: readonly TextFileModelChangeEvent[]): void {
@@ -101,7 +110,7 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 	}
 
 	private updateActivityBadge(): void {
-		const dirtyCount = this.textFileService.getDirty().length;
+		const dirtyCount = this.textFileService.getDirty().length + this.workingCopyService.dirtyCount;
 		this.lastKnownDirtyCount = dirtyCount;
 
 		this.badgeHandle.clear();
