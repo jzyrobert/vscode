@@ -26,10 +26,10 @@ export class TestUntitledTextEditorService extends UntitledTextEditorService {
 
 class ServiceAccessor {
 	constructor(
-		@IUntitledTextEditorService public untitledTextEditorService: TestUntitledTextEditorService,
-		@IWorkingCopyService public workingCopyService: IWorkingCopyService,
-		@IModeService public modeService: ModeServiceImpl,
-		@IConfigurationService public testConfigurationService: TestConfigurationService) {
+		@IUntitledTextEditorService public readonly untitledTextEditorService: TestUntitledTextEditorService,
+		@IWorkingCopyService public readonly workingCopyService: IWorkingCopyService,
+		@IModeService public readonly modeService: ModeServiceImpl,
+		@IConfigurationService public readonly testConfigurationService: TestConfigurationService) {
 	}
 }
 
