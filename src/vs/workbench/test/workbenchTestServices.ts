@@ -263,6 +263,7 @@ export class TestTextFileService extends NativeTextFileService {
 				resource: content.resource,
 				name: content.name,
 				mtime: content.mtime,
+				ctime: content.ctime,
 				etag: content.etag,
 				encoding: 'utf8',
 				value: await createTextBufferFactoryFromStream(content.value),
@@ -976,7 +977,9 @@ export class TestFileService implements IFileService {
 			encoding: 'utf8',
 			mtime: Date.now(),
 			size: 42,
+			isFile: true,
 			isDirectory: false,
+			isSymbolicLink: false,
 			name: resources.basename(resource)
 		});
 	}
@@ -998,6 +1001,7 @@ export class TestFileService implements IFileService {
 			etag: 'index.txt',
 			encoding: 'utf8',
 			mtime: Date.now(),
+			ctime: Date.now(),
 			name: resources.basename(resource),
 			size: 1
 		});
@@ -1024,6 +1028,7 @@ export class TestFileService implements IFileService {
 			etag: 'index.txt',
 			encoding: 'utf8',
 			mtime: Date.now(),
+			ctime: Date.now(),
 			size: 1,
 			name: resources.basename(resource)
 		});
@@ -1035,8 +1040,11 @@ export class TestFileService implements IFileService {
 			etag: 'index.txt',
 			encoding: 'utf8',
 			mtime: Date.now(),
+			ctime: Date.now(),
 			size: 42,
+			isFile: true,
 			isDirectory: false,
+			isSymbolicLink: false,
 			name: resources.basename(resource)
 		}));
 	}

@@ -27,6 +27,7 @@ import { editorBackground, editorForeground } from 'vs/platform/theme/common/col
 import { IWorkingCopy, IWorkingCopyService } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
 const CUSTOM_SCHEME = 'testCustomEditor';
+const ENABLE = true;
 
 class TestCustomEditorsAction extends Action {
 
@@ -206,32 +207,34 @@ class TestCustomEditorModel extends EditorModel {
 	}
 }
 
-Registry.as<IEditorRegistry>(EditorExtensions.Editors).registerEditor(
-	new EditorDescriptor(
-		TestCustomEditor,
-		TestCustomEditor.ID,
-		nls.localize('testCustomEditor', "Test Custom Editor")
-	),
-	[
-		new SyncDescriptor<EditorInput>(TestCustomEditorInput),
-	]
-);
+if (ENABLE) {
+	Registry.as<IEditorRegistry>(EditorExtensions.Editors).registerEditor(
+		new EditorDescriptor(
+			TestCustomEditor,
+			TestCustomEditor.ID,
+			nls.localize('testCustomEditor', "Test Custom Editor")
+		),
+		[
+			new SyncDescriptor<EditorInput>(TestCustomEditorInput),
+		]
+	);
 
-const registry = Registry.as<IWorkbenchActionRegistry>(Extensions.WorkbenchActions);
+	const registry = Registry.as<IWorkbenchActionRegistry>(Extensions.WorkbenchActions);
 
-registry.registerWorkbenchAction(new SyncActionDescriptor(TestCustomEditorsAction, TestCustomEditorsAction.ID, TestCustomEditorsAction.LABEL), 'Test Open Custom Editor');
+	registry.registerWorkbenchAction(new SyncActionDescriptor(TestCustomEditorsAction, TestCustomEditorsAction.ID, TestCustomEditorsAction.LABEL), 'Test Open Custom Editor');
 
-class TestCustomEditorInputFactory implements IEditorInputFactory {
+	class TestCustomEditorInputFactory implements IEditorInputFactory {
 
-	serialize(editorInput: TestCustomEditorInput): string {
-		return JSON.stringify({
-			resource: editorInput.resource.toString()
-		});
+		serialize(editorInput: TestCustomEditorInput): string {
+			return JSON.stringify({
+				resource: editorInput.resource.toString()
+			});
+		}
+
+		deserialize(instantiationService: IInstantiationService, serializedEditorInput: string): TestCustomEditorInput {
+			return instantiationService.createInstance(TestCustomEditorInput, URI.parse(JSON.parse(serializedEditorInput).resource));
+		}
 	}
 
-	deserialize(instantiationService: IInstantiationService, serializedEditorInput: string): TestCustomEditorInput {
-		return instantiationService.createInstance(TestCustomEditorInput, URI.parse(JSON.parse(serializedEditorInput).resource));
-	}
+	Registry.as<IEditorInputFactoryRegistry>(EditorInputExtensions.EditorInputFactories).registerEditorInputFactory(TestCustomEditor.ID, TestCustomEditorInputFactory);
 }
-
-Registry.as<IEditorInputFactoryRegistry>(EditorInputExtensions.EditorInputFactories).registerEditorInputFactory(TestCustomEditor.ID, TestCustomEditorInputFactory);
