@@ -6,16 +6,13 @@
 import * as nls from 'vs/nls';
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { VIEWLET_ID } from 'vs/workbench/contrib/files/common/files';
-import { TextFileModelChangeEvent, ITextFileService, AutoSaveMode, ModelState } from 'vs/workbench/services/textfile/common/textfiles';
+import { ITextFileService, AutoSaveMode } from 'vs/workbench/services/textfile/common/textfiles';
 import { ILifecycleService } from 'vs/platform/lifecycle/common/lifecycle';
 import { Disposable, MutableDisposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
 import { IActivityService, NumberBadge } from 'vs/workbench/services/activity/common/activity';
-import * as arrays from 'vs/base/common/arrays';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IWorkingCopyService, IWorkingCopy, WorkingCopyCapabilities } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
-export class DirtyFilesTracker extends Disposable implements IWorkbenchContribution {
+export class DirtyFilesIndicator extends Disposable implements IWorkbenchContribution {
 	private readonly badgeHandle = this._register(new MutableDisposable());
 
 	private lastKnownDirtyCount: number | undefined;
@@ -27,7 +24,6 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 	constructor(
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		@IEditorService private readonly editorService: IEditorService,
 		@IActivityService private readonly activityService: IActivityService,
 		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService
 	) {
@@ -37,9 +33,6 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 	}
 
 	private registerListeners(): void {
-
-		// Local text file changes
-		this._register(this.textFileService.models.onModelsDirty(e => this.onTextFilesDirty(e)));
 
 		// Working copy dirty indicator
 		this._register(this.workingCopyService.onDidChangeDirty(c => this.onWorkingCopyDidChangeDirty(c)));
@@ -57,31 +50,6 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 		if (gotDirty || this.hasDirtyCount) {
 			this.updateActivityBadge();
 		}
-	}
-
-	private onTextFilesDirty(e: readonly TextFileModelChangeEvent[]): void {
-
-		// If files become dirty but are not opened, we open it in the background unless there are pending to be saved
-		this.doOpenDirtyResources(arrays.distinct(e.filter(e => {
-
-			// Only dirty models that are not PENDING_SAVE
-			const model = this.textFileService.models.get(e.resource);
-			const shouldOpen = model?.isDirty() && !model.hasState(ModelState.PENDING_SAVE);
-
-			// Only if not open already
-			return shouldOpen && !this.editorService.isOpen({ resource: e.resource });
-		}).map(e => e.resource), r => r.toString()));
-	}
-
-	private doOpenDirtyResources(resources: URI[]): void {
-
-		// Open
-		this.editorService.openEditors(resources.map(resource => {
-			return {
-				resource,
-				options: { inactive: true, pinned: true, preserveFocus: true }
-			};
-		}));
 	}
 
 	private updateActivityBadge(): void {
