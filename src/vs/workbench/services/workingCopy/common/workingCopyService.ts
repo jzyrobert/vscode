@@ -10,6 +10,15 @@ import { URI } from 'vs/base/common/uri';
 import { Disposable, IDisposable, toDisposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { TernarySearchTree } from 'vs/base/common/map';
 
+export const enum WorkingCopyCapabilities {
+
+	/**
+	 * Signals that the working copy participates
+	 * in auto saving as configured by the user.
+	 */
+	AutoSave = 1 << 1
+}
+
 export interface IWorkingCopy {
 
 	//#region Dirty Tracking
@@ -21,6 +30,8 @@ export interface IWorkingCopy {
 	//#endregion
 
 	readonly resource: URI;
+
+	readonly capabilities: WorkingCopyCapabilities;
 }
 
 export const IWorkingCopyService = createDecorator<IWorkingCopyService>('workingCopyService');
@@ -34,6 +45,8 @@ export interface IWorkingCopyService {
 	readonly onDidChangeDirty: Event<IWorkingCopy>;
 
 	readonly dirtyCount: number;
+
+	readonly hasDirty: boolean;
 
 	isDirty(resource: URI): boolean;
 
@@ -69,16 +82,24 @@ export class WorkingCopyService extends Disposable implements IWorkingCopyServic
 		return false;
 	}
 
+	get hasDirty(): boolean {
+		for (const workingCopy of this.workingCopies) {
+			if (workingCopy.isDirty()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	get dirtyCount(): number {
 		let totalDirtyCount = 0;
 
-		this.mapResourceToWorkingCopy.forEach(workingCopies => {
-			for (const workingCopy of workingCopies) {
-				if (workingCopy.isDirty()) {
-					totalDirtyCount++;
-				}
+		for (const workingCopy of this.workingCopies) {
+			if (workingCopy.isDirty()) {
+				totalDirtyCount++;
 			}
-		});
+		}
 
 		return totalDirtyCount;
 	}
@@ -89,6 +110,7 @@ export class WorkingCopyService extends Disposable implements IWorkingCopyServic
 	//#region Registry
 
 	private mapResourceToWorkingCopy = TernarySearchTree.forPaths<Set<IWorkingCopy>>();
+	private workingCopies = new Set<IWorkingCopy>();
 
 	registerWorkingCopy(workingCopy: IWorkingCopy): IDisposable {
 		const disposables = new DisposableStore();
@@ -100,12 +122,15 @@ export class WorkingCopyService extends Disposable implements IWorkingCopyServic
 			this.mapResourceToWorkingCopy.set(workingCopy.resource.toString(), workingCopiesForResource);
 		}
 
-		if (!workingCopiesForResource.has(workingCopy)) {
-			workingCopiesForResource.add(workingCopy);
-		}
+		workingCopiesForResource.add(workingCopy);
+
+		this.workingCopies.add(workingCopy);
 
 		// Dirty Events
 		disposables.add(workingCopy.onDidChangeDirty(() => this._onDidChangeDirty.fire(workingCopy)));
+		if (workingCopy.isDirty()) {
+			this._onDidChangeDirty.fire(workingCopy);
+		}
 
 		return toDisposable(() => {
 			this.unregisterWorkingCopy(workingCopy);
@@ -120,6 +145,8 @@ export class WorkingCopyService extends Disposable implements IWorkingCopyServic
 		if (workingCopiesForResource && workingCopiesForResource.delete(workingCopy) && workingCopiesForResource.size === 0) {
 			this.mapResourceToWorkingCopy.delete(workingCopy.resource.toString());
 		}
+
+		this.workingCopies.delete(workingCopy);
 
 		// If copy is dirty, ensure to fire an event to signal the dirty change
 		// (a disposed working copy cannot account for being dirty in our model)

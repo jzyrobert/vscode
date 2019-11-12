@@ -120,6 +120,8 @@ class TestCustomEditorInput extends EditorInput implements IWorkingCopy {
 
 	private dirty = false;
 
+	readonly capabilities = 0;
+
 	constructor(public readonly resource: URI, @IWorkingCopyService workingCopyService: IWorkingCopyService) {
 		super();
 

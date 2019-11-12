@@ -11,21 +11,24 @@ import { ILifecycleService } from 'vs/platform/lifecycle/common/lifecycle';
 import { Disposable, MutableDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { IActivityService, NumberBadge } from 'vs/workbench/services/activity/common/activity';
-import { IUntitledTextEditorService } from 'vs/workbench/services/untitled/common/untitledTextEditorService';
 import * as arrays from 'vs/base/common/arrays';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IWorkingCopyService, IWorkingCopy } from 'vs/workbench/services/workingCopy/common/workingCopyService';
+import { IWorkingCopyService, IWorkingCopy, WorkingCopyCapabilities } from 'vs/workbench/services/workingCopy/common/workingCopyService';
 
 export class DirtyFilesTracker extends Disposable implements IWorkbenchContribution {
-	private lastKnownDirtyCount: number | undefined;
 	private readonly badgeHandle = this._register(new MutableDisposable());
 
+	private lastKnownDirtyCount: number | undefined;
+
+	private get hasDirtyCount(): boolean {
+		return typeof this.lastKnownDirtyCount === 'number' && this.lastKnownDirtyCount > 0;
+	}
+
 	constructor(
-		@ITextFileService protected readonly textFileService: ITextFileService,
+		@ITextFileService private readonly textFileService: ITextFileService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IActivityService private readonly activityService: IActivityService,
-		@IUntitledTextEditorService protected readonly untitledTextEditorService: IUntitledTextEditorService,
 		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService
 	) {
 		super();
@@ -36,39 +39,27 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 	private registerListeners(): void {
 
 		// Local text file changes
-		this._register(this.untitledTextEditorService.onDidChangeDirty(e => this.onUntitledDidChangeDirty(e)));
 		this._register(this.textFileService.models.onModelsDirty(e => this.onTextFilesDirty(e)));
-		this._register(this.textFileService.models.onModelsSaved(e => this.onTextFilesSaved(e)));
-		this._register(this.textFileService.models.onModelsSaveError(e => this.onTextFilesSaveError(e)));
-		this._register(this.textFileService.models.onModelsReverted(e => this.onTextFilesReverted(e)));
 
-		// NEW!
+		// Working copy dirty indicator
 		this._register(this.workingCopyService.onDidChangeDirty(c => this.onWorkingCopyDidChangeDirty(c)));
 
 		// Lifecycle
 		this.lifecycleService.onShutdown(this.dispose, this);
 	}
 
-	private get hasDirtyCount(): boolean {
-		return typeof this.lastKnownDirtyCount === 'number' && this.lastKnownDirtyCount > 0;
-	}
+	private onWorkingCopyDidChangeDirty(copy: IWorkingCopy): void {
+		if (!!(copy.capabilities & WorkingCopyCapabilities.AutoSave) && this.textFileService.getAutoSaveMode() === AutoSaveMode.AFTER_SHORT_DELAY) {
+			return; // do not indicate changes to working copies that are auto saved after short delay
+		}
 
-	protected onUntitledDidChangeDirty(resource: URI): void {
-		const gotDirty = this.untitledTextEditorService.isDirty(resource);
-
+		const gotDirty = copy.isDirty();
 		if (gotDirty || this.hasDirtyCount) {
 			this.updateActivityBadge();
 		}
 	}
 
-	private onWorkingCopyDidChangeDirty(copy: IWorkingCopy): void {
-		this.updateActivityBadge();
-	}
-
-	protected onTextFilesDirty(e: readonly TextFileModelChangeEvent[]): void {
-		if (this.textFileService.getAutoSaveMode() !== AutoSaveMode.AFTER_SHORT_DELAY) {
-			this.updateActivityBadge(); // no indication needed when auto save is enabled for short delay
-		}
+	private onTextFilesDirty(e: readonly TextFileModelChangeEvent[]): void {
 
 		// If files become dirty but are not opened, we open it in the background unless there are pending to be saved
 		this.doOpenDirtyResources(arrays.distinct(e.filter(e => {
@@ -93,30 +84,19 @@ export class DirtyFilesTracker extends Disposable implements IWorkbenchContribut
 		}));
 	}
 
-	protected onTextFilesSaved(e: readonly TextFileModelChangeEvent[]): void {
-		if (this.hasDirtyCount) {
-			this.updateActivityBadge();
-		}
-	}
-
-	protected onTextFilesSaveError(e: readonly TextFileModelChangeEvent[]): void {
-		this.updateActivityBadge();
-	}
-
-	protected onTextFilesReverted(e: readonly TextFileModelChangeEvent[]): void {
-		if (this.hasDirtyCount) {
-			this.updateActivityBadge();
-		}
-	}
-
 	private updateActivityBadge(): void {
-		const dirtyCount = this.textFileService.getDirty().length + this.workingCopyService.dirtyCount;
+		const dirtyCount = this.workingCopyService.dirtyCount;
 		this.lastKnownDirtyCount = dirtyCount;
 
-		this.badgeHandle.clear();
-
+		// Indicate dirty count in badge if any
 		if (dirtyCount > 0) {
-			this.badgeHandle.value = this.activityService.showActivity(VIEWLET_ID, new NumberBadge(dirtyCount, num => num === 1 ? nls.localize('dirtyFile', "1 unsaved file") : nls.localize('dirtyFiles', "{0} unsaved files", dirtyCount)), 'explorer-viewlet-label');
+			this.badgeHandle.value = this.activityService.showActivity(
+				VIEWLET_ID,
+				new NumberBadge(dirtyCount, num => num === 1 ? nls.localize('dirtyFile', "1 unsaved file") : nls.localize('dirtyFiles', "{0} unsaved files", dirtyCount)),
+				'explorer-viewlet-label'
+			);
+		} else {
+			this.badgeHandle.clear();
 		}
 	}
 }
