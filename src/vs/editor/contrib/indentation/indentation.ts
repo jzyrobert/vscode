@@ -566,6 +566,11 @@ export class AutoIndentOnPaste implements IEditorContribution {
 				if (newSpaceCntOfSecondLine !== oldSpaceCntOfSecondLine) {
 					let spaceCntOffset = newSpaceCntOfSecondLine - oldSpaceCntOfSecondLine;
 					for (let i = startLineNumber + 1; i <= range.endLineNumber; i++) {
+						// For the last line, if it is just a newline and previous content existed, don't indent
+						// This is so that the existing content is preserved.
+						if (i === range.endLineNumber && range.endColumn === 1 && model.getLineLength(range.endLineNumber) > 0) {
+							break;
+						}
 						let lineContent = model.getLineContent(i);
 						let originalIndent = strings.getLeadingWhitespace(lineContent);
 						let originalSpacesCnt = indentUtils.getSpaceCnt(originalIndent, tabSize);
