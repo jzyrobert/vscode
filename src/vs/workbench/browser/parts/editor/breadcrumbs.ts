@@ -70,7 +70,6 @@ export abstract class BreadcrumbsConfig<T> {
 	static readonly UseQuickPick = BreadcrumbsConfig._stub<boolean>('breadcrumbs.useQuickPick');
 	static readonly FilePath = BreadcrumbsConfig._stub<'on' | 'off' | 'last'>('breadcrumbs.filePath');
 	static readonly SymbolPath = BreadcrumbsConfig._stub<'on' | 'off' | 'last'>('breadcrumbs.symbolPath');
-	static readonly SymbolSortOrder = BreadcrumbsConfig._stub<'position' | 'name' | 'type'>('breadcrumbs.symbolSortOrder');
 	static readonly Icons = BreadcrumbsConfig._stub<boolean>('breadcrumbs.icons');
 
 	static readonly FileExcludes = BreadcrumbsConfig._stub<glob.IExpression>('files.exclude');
@@ -155,6 +154,7 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			description: localize('symbolSortOrder', "Controls how symbols are sorted in the breadcrumbs outline view."),
 			type: 'string',
 			default: 'position',
+			overridable: true,
 			enum: ['position', 'name', 'type'],
 			enumDescriptions: [
 				localize('symbolSortOrder.position', "Show symbol outline in file position order."),

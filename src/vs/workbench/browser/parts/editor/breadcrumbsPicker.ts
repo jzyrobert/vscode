@@ -428,8 +428,6 @@ export class BreadcrumbsFilePicker extends BreadcrumbsPicker {
 
 export class BreadcrumbsOutlinePicker extends BreadcrumbsPicker {
 
-	protected readonly _symbolSortOrder: BreadcrumbsConfig<'position' | 'name' | 'type'>;
-
 	constructor(
 		parent: HTMLElement,
 		@IInstantiationService instantiationService: IInstantiationService,
@@ -437,7 +435,6 @@ export class BreadcrumbsOutlinePicker extends BreadcrumbsPicker {
 		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super(parent, instantiationService, themeService, configurationService);
-		this._symbolSortOrder = BreadcrumbsConfig.SymbolSortOrder.bindTo(this._configurationService);
 	}
 
 	protected _createTree(container: HTMLElement) {
@@ -461,7 +458,6 @@ export class BreadcrumbsOutlinePicker extends BreadcrumbsPicker {
 	}
 
 	dispose(): void {
-		this._symbolSortOrder.dispose();
 		super.dispose();
 	}
 
@@ -487,7 +483,7 @@ export class BreadcrumbsOutlinePicker extends BreadcrumbsPicker {
 	}
 
 	private _getOutlineItemCompareType(): OutlineSortOrder {
-		switch (this._symbolSortOrder.getValue()) {
+		switch (this._configurationService.getValue('breadcrumbs.symbolSortOrder')) {
 			case 'name':
 				return OutlineSortOrder.ByName;
 			case 'type':
